@@ -67,12 +67,14 @@ vim.opt.rtp:prepend(lazypath)
 --  You can also configure plugins after the setup call,
 --    as they will be available in your neovim runtime.
 require('lazy').setup({
+
   -- NOTE: First, some plugins that don't require any configuration
 
   -- Git related plugins
   'tpope/vim-fugitive',
   'tpope/vim-rhubarb',
-  'lervag/vimtex',
+
+  { "catppuccin/nvim", name = "catppuccin", priority = 1000 },
   -- Detect tabstop and shiftwidth automatically
   'tpope/vim-sleuth',
 
@@ -100,7 +102,18 @@ require('lazy').setup({
     'hrsh7th/nvim-cmp',
     dependencies = {
       -- Snippet Engine & its associated nvim-cmp source
-      'L3MON4D3/LuaSnip',
+      {
+        'L3MON4D3/LuaSnip',
+        build = (function()
+          -- Build Step is needed for regex support in snippets
+          -- This step is not supported in many windows environments
+          -- Remove the below condition to re-enable on windows
+          if vim.fn.has 'win32' == 1 then
+            return
+          end
+          return 'make install_jsregexp'
+        end)(),
+      },
       'saadparwaiz1/cmp_luasnip',
 
       -- Adds LSP completion capabilities
@@ -188,37 +201,19 @@ require('lazy').setup({
       end,
     },
   },
-
   {
-    -- Theme inspired by Atom
-    'navarasu/onedark.nvim',
-    priority = 1000,
-    config = function()
-      vim.cmd.colorscheme 'onedark'
-    end,
-  },
-
-  {
+  
     -- Set lualine as statusline
     'nvim-lualine/lualine.nvim',
     -- See `:help lualine.txt`
     opts = {
       options = {
         icons_enabled = false,
-        theme = 'onedark',
+        theme = 'auto',
         component_separators = '|',
         section_separators = '',
       },
     },
-  },
-
-  {
-    -- Add indentation guides even on blank lines
-    'lukas-reineke/indent-blankline.nvim',
-    -- Enable `lukas-reineke/indent-blankline.nvim`
-    -- See `:help ibl`
-    main = 'ibl',
-    opts = {},
   },
 
   -- "gc" to comment visual regions/lines
@@ -266,13 +261,13 @@ require('lazy').setup({
   --    Uncomment the following line and add your plugins to `lua/custom/plugins/*.lua` to get going.
   --
   --    For additional information see: https://github.com/folke/lazy.nvim#-structuring-your-plugins
- -- { import = 'custom.plugins' },
+{ import = 'custom.plugins' },
 }, {})
 
 -- [[ Setting options ]]
 -- See `:help vim.o`
 -- NOTE: You can change these options as you wish!
-vim.g.vimtex_view_method = 'zathura'
+
 -- Set highlight on search
 vim.o.hlsearch = false
 
@@ -310,18 +305,16 @@ vim.o.completeopt = 'menuone,noselect'
 -- NOTE: You should make sure your terminal supports this
 vim.o.termguicolors = true
 
--- Set relative numbers
-vim.wo.relativenumber = true
-
-
--- Go to explorer
-vim.keymap.set("n", "<leader>pv", vim.cmd.Ex)
-
 -- [[ Basic Keymaps ]]
+
+--vim.api.nvim_set_keymap('n', '<Space>k', ':!kitty<CR>', {noremap = true, silent = true})
 
 -- Keymaps for better default experience
 -- See `:help vim.keymap.set()`
-vim.keymap.set({ 'n', 'v' }, '<Space>', '<Nop>', { silent = true })
+-- vim.keymap.set({ 'n', 'v' }, '<Space>', '<Nop>', { silent = true })
+
+-- Go to explorer
+vim.keymap.set("n", "<leader>pv", vim.cmd.Ex)
 
 -- Remap for dealing with word wrap
 vim.keymap.set('n', 'k', "v:count == 0 ? 'gk' : 'k'", { expr = true, silent = true })
@@ -434,7 +427,12 @@ vim.defer_fn(function()
 
     -- Autoinstall languages that are not installed. Defaults to false (but you can change for yourself!)
     auto_install = false,
-
+    -- Install languages synchronously (only applied to `ensure_installed`)
+    sync_install = false,
+    -- List of parsers to ignore installing
+    ignore_install = {},
+    -- You can specify additional Treesitter modules here: -- For example: -- playground = {--enable = true,-- },
+    modules = {},
     highlight = { enable = true },
     indent = { enable = true },
     incremental_selection = {
@@ -511,7 +509,9 @@ local on_attach = function(_, bufnr)
   end
 
   nmap('<leader>rn', vim.lsp.buf.rename, '[R]e[n]ame')
-  nmap('<leader>ca', vim.lsp.buf.code_action, '[C]ode [A]ction')
+  nmap('<leader>ca', function()
+    vim.lsp.buf.code_action { context = { only = { 'quickfix', 'refactor', 'source' } } }
+  end, '[C]ode [A]ction')
 
   nmap('gd', require('telescope.builtin').lsp_definitions, '[G]oto [D]efinition')
   nmap('gr', require('telescope.builtin').lsp_references, '[G]oto [R]eferences')
@@ -663,6 +663,42 @@ cmp.setup {
     { name = 'path' },
   },
 }
+
+require("catppuccin").setup{
+  transparent_background = true,
+}
+
+vim.cmd.colorscheme "catppuccin"
+
+require('harpoon').setup{
+  global_settings = {
+      -- sets the marks upon calling `toggle` on the ui, instead of require `:w`.
+      save_on_toggle = false,
+
+      -- saves the harpoon file upon every change. disabling is unrecommended.
+      save_on_change = true,
+
+      -- sets harpoon to run the command immediately as it's passed to the terminal when calling `sendCommand`.
+      enter_on_sendcmd = false,
+
+      -- closes any tmux windows harpoon that harpoon creates when you close Neovim.
+      tmux_autoclose_windows = false,
+
+      -- filetypes that you want to prevent from adding to the harpoon list menu.
+      excluded_filetypes = { "harpoon" },
+
+      -- set marks specific to each git branch inside git repository
+      mark_branch = false,
+
+      -- enable tabline with harpoon marks
+      tabline = false,
+      tabline_prefix = "   ",
+      tabline_suffix = "   ",
+  }
+}
+
+require('telescope').load_extension('harpoon')
+
 
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
